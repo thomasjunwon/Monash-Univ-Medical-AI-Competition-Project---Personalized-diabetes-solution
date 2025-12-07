@@ -19,11 +19,6 @@ col_minmax = {
 }
 
 
-import os
-os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
-
 
 # %%
 import torch
@@ -33,6 +28,7 @@ import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader,Subset
 from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+import random
 
 
 # 머신러닝 관련 라이브러리
@@ -47,6 +43,14 @@ from sklearn.metrics import classification_report, confusion_matrix
 def to_tensor(*dfs):
     return [torch.tensor(df.values,dtype=torch.float32) for df in dfs]
 
+def set_seed(seed):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+set_seed(1)
 
 
 class MainModule(nn.Module):
@@ -149,16 +153,15 @@ class TotalModel(nn.Module):    #TotalModel의 128 dim에서 skip connection 적
 
 # %%
 class PatientEnv:
-    def __init__(self, patient_data, score_model, max_steps=5):
+    def __init__(self, score_model, max_steps=5):
         """
         patient_data: dict {patient_id: {"features": np.array, "label": int}}
         score_model: scoring DNN 모델 (reward용)
         """
         self.state = np.zeros(34, dtype=np.float32)        
-        self.patient_data = patient_data
         self.score_model = score_model
         self.max_steps = max_steps
-        self.num_features = list(patient_data.values())[0]['features'].shape[0]
+        self.num_features = 34
 
     def reset(self, patient_id):  #pid를 받고 해당 환자의 변수정보를 state에 저장
         self.patient = self.patient_data[patient_id]
@@ -188,7 +191,7 @@ class PatientEnv:
         return self.state.copy()
 
 
-    def step(self, action_idx, delta, alpha=100):
+    def step(self, action_idx, delta, alpha=5):
         """
         action: [action_idx; 선택할 변수 인덱스 , delta; idx 변수에 대해서 변화시킬 값의 정도] 
         delta: float, 선택 변수에 더할 값
@@ -203,7 +206,7 @@ class PatientEnv:
             old_reward = self.score_model(old_state_tensor)  #이전 시기의 state -> reward계산
         
         
-        self.state[action_idx.item()]= np.clip(self.state[action_idx.item()]+ delta.item(), var_min, var_max)  # action으로 state update
+        self.state[action_idx.item()]= np.clip(self.state[action_idx.item()]+ delta.item(), var_min//3, var_max//3)  # action으로 state update
 
         new_state_tensor = torch.tensor(self.state, dtype=torch.float32).unsqueeze(0)  #new state -> reward계산
         with torch.no_grad():
@@ -252,14 +255,17 @@ class HybridActor(nn.Module):
             nn.ReLU(),
             nn.Linear(40, 8),
             nn.ReLU(),
-            nn.Linear(8, 4),
+            nn.Linear(8, 3),
             nn.ReLU(),
-            nn.Linear(4, 1),
+            nn.Linear(3, 1),
         )
 
     def forward(self, state):
         h = self.shared(state)
         logits = self.discrete_head(h)
+        mask = torch.zeros_like(logits)
+        mask[:9] = -1e9
+        logits = logits + mask
         dist = Categorical(logits=logits) 
         action_index = dist.sample()   #34개의 변수에 대한 logit값을 얻은 후에, 이 logit으로 dist 만들어서 index 정수값 샘플링한다. (후반에 별로 -> epsilon-greedy?)
         return action_index
@@ -280,7 +286,7 @@ class HybridActor(nn.Module):
         # delta 예측
         delta = self.delta_net(x)
         var_min, var_max =col_minmax[action_index.item()]
-        delta = torch.clamp(delta, min=var_min, max=var_max)
+        delta = torch.clamp(delta, min=var_min//3, max=var_max//3)
         return delta
     
 def load_best_model(model, device=device):
@@ -337,7 +343,7 @@ def test_patient(env, actor, patient_dict, max_steps=8):
         delta_float=delta.item()
 
         # === ENV STEP ===
-        next_state, reward, done = env.step(action_idx, delta, alpha=5)
+        next_state, reward, done = env.step(action_idx, delta, alpha=100)
 
         # step 기록
         feature_name = feature_names[int(action_idx.item())]
@@ -362,20 +368,22 @@ input_dict = {'gender': 1.0, 'age': 33.0, 'race': 1.0, 'educ': 4.0, 'marry': 1.0
                 'ast': 32.0, 'crea': 0.82, 'chol': 170.0, 'tyg': 168.0, 'ggt': 36.0, 'wbc': 6.7, 'hb': 15.5, 'hct': 46.3, 'ldl': 106.0, 
                 'hdl': 33.0, 'acratio': 5.24, 'glu': 204.0, 'insulin': 22.77, 'crp': 8.81, 'hb1ac': 9.5, 'mvpa': 840.0, 'ac_week': 0.173077, 
                 'context':"dd"}
+input_dict2 = {"gender":2.0,"age":68.0,"race":4.0,"educ":4.0,"marry":2.0,"house":1.0,"pov":2.13,"wt":77.4,"ht":164.8,"bmi":28.5,"wst":101.3,"hip":102.7,"dia":71.0,"pulse":90.0,"sys":131.0,"alt":26.0,"albumin":3.9,"ast":25.0,"crea":0.7,"chol":125.0,"tyg":192.0,"ggt":21.0,"wbc":6.1,"hb":13.3,"hct":39.8,"ldl":58.0,"hdl":35.0,"acratio":1.0,"glu":116.0,"insulin":25.11,"crp":10.82,"hb1ac":6.6,"mvpa":660.0,"ac_week":0.086538}
+
 patient_data = {
     i: {"features": X.iloc[i], "label": y.iloc[i]} for i in range(newdf.shape[0])
 }
 
-env = PatientEnv(patient_data, scoring, max_steps=8)
+env = PatientEnv(scoring, max_steps=8)
 env.reset_from_dict(input_dict)
 
 # 2) actor 모델 로드
-actor = HybridActor()
-actor.load_state_dict(torch.load("model/actor.pt"))
-actor.eval()
+actor2 = HybridActor()
+actor2.load_state_dict(torch.load("model/actor.pt"))
+actor2.eval()
 
 # 3) 평가 실행
-rl_output = test_patient(env, actor, input_dict)
+rl_output = test_patient(env, actor2, input_dict2)
 print(rl_output)
 
 
@@ -383,5 +391,6 @@ print(rl_output)
 from main import llm
 result=llm(rl_output)
 print(result)
-print("dd")
+
+
 

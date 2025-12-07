@@ -1,0 +1,49 @@
+Gender: Male  
+Age: 52  
+Race: White  
+Education: Some college / AA degree  
+Marital Status: Married/Living with partner  
+Household Size: 3  
+Poverty Index (PIR): 1.7  
+
+Weight: 88.5 kg  
+Height: 173 cm  
+BMI: 29.6  
+Waist Circumference: 102 cm  
+Hip Circumference: 100 cm  
+
+Systolic BP: 138 mmHg  
+Diastolic BP: 86 mmHg  
+Pulse Rate: 78 bpm  
+
+ALT: 42 IU/L  
+AST: 36 IU/L  
+GGT: 65 IU/L  
+Albumin: 4.2 g/dL  
+
+Creatinine: 1.0 mg/dL  
+Albumin/Creatinine ratio: 22 mg/g  
+
+Total Cholesterol: 212 mg/dL  
+LDL: 138 mg/dL  
+HDL: 41 mg/dL  
+TyG Index: 8.8  
+Fasting Glucose: 108 mg/dL  
+Insulin: 15 μU/mL  
+
+HbA1c: 5.9%  
+
+hsCRP: 3.8 mg/L  
+White Blood Cells: 7.2  
+
+Hemoglobin: 14.6 g/dL  
+Hematocrit: 43%  
+
+MVPA (Weekly Active Minutes): 70  
+Alcohol Intake (drinks/week): 8  
+
+Vegetarian / Plant-Based Meals per Week (category): 4–6 meals/week  
+Average Sleep Duration (category): 5–6 hours/night  
+Typical Bedtime (category): 11 pm–12 am  
+
+Context Note: Patient works as a mid-level office manager and reports late meetings and frequent evening work emails. Meals are often restaurant-based due to convenience. Lives with spouse and one teenage child. Reports moderate work-related stress and inconsistent sleep schedule with regular screen exposure before bed. States: “I know I should do better, I just can’t stick to it.” No financial barriers but low motivation for lifestyle change.
